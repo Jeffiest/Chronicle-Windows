@@ -195,7 +195,11 @@ TEST(PlatformConfig, ShowFpsAndTheHostKeys) {
 
 TEST(PlatformConfig, SurroundIsOffUntilAsked) {
     ASSERT_TRUE(!ConfigParse("").surround);
-    ASSERT_TRUE(ConfigParse(R"({"audio": {"surround": true}})").surround);
+    Config surround = ConfigParse(R"({"audio": {"sound": "surround"}})");
+    ASSERT_TRUE(surround.surround && surround.options.stereo);
+    ASSERT_NE(ConfigSerialize(surround).find("\"sound\": \"surround\""), std::string::npos);
+    ASSERT_EQ(ConfigSerialize(surround).find("\"surround\": "), std::string::npos);
+    ASSERT_TRUE(ConfigParse(R"({"audio": {"sound": "stereo", "surround": true}})").surround);
     ASSERT_TRUE(!ConfigParse(R"({"audio": {"surround": "yes"}})").surround);
 }
 
@@ -651,4 +655,12 @@ TEST(PlatformConfig, ElementPicker) {
     ASSERT_TRUE(config.element_quick_select);
     ASSERT_TRUE(ConfigParse(ConfigSerialize(config)).element_quick_select);
     ASSERT_TRUE(!ConfigParse(R"({"game": {"element_quick_select": "yes"}})").element_quick_select);
+}
+
+TEST(PlatformConfig, TextFont) {
+    ASSERT_TRUE(ConfigParse("").font_sharp);
+    Config config = ConfigParse(R"({"video": {"text_font": "original"}})");
+    ASSERT_TRUE(!config.font_sharp);
+    ASSERT_TRUE(!ConfigParse(ConfigSerialize(config)).font_sharp);
+    ASSERT_TRUE(ConfigParse(R"({"video": {"text_font": "blurry"}})").font_sharp);
 }

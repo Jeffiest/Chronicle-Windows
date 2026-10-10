@@ -134,7 +134,7 @@ bool ReadAspect(const Json &value, ConfigAspect &out) {
     return true;
 }
 
-constexpr const char *kGlyphDeviceNames[] = {"auto", "ps3", "ps4", "ps5", "xbox", "switch", "steamdeck", "steamcontroller", "keyboard"};
+constexpr const char *kGlyphDeviceNames[] = {"auto", "ps3", "ps4", "ps5", "ps5color", "xbox", "switch", "steamdeck", "steamcontroller", "keyboard"};
 
 bool ReadGlyphDevice(const Json &value, ConfigGlyphDevice &out) {
     if (!value.is_string()) {
@@ -284,6 +284,11 @@ bool ApplyGameOption(ConfigGameOptions &options, std::string_view name, const Js
 }
 
 bool Apply(Config &config, std::string_view name, const Json &value) {
+    if (name == "audio.sound" && value == "surround") {
+        config.options.stereo = true;
+        config.surround = true;
+        return true;
+    }
     if (ApplyGameOption(config.options, name, value)) {
         return true;
     }
@@ -352,6 +357,13 @@ bool Apply(Config &config, std::string_view name, const Json &value) {
             return false;
         }
         config.rumble_strength = strength;
+        return true;
+    }
+    if (name == "video.text_font") {
+        if (!value.is_string() || (value.get<std::string>() != "sharp" && value.get<std::string>() != "original")) {
+            return false;
+        }
+        config.font_sharp = value.get<std::string>() == "sharp";
         return true;
     }
     if (name == "input.glyphs") {
@@ -507,6 +519,7 @@ bool Apply(Config &config, std::string_view name, const Json &value) {
     if (name == "audio.soundtrack") {
         return ReadChoice(value, "ps2", "custom", config.soundtrack);
     }
+    // Written before audio.sound took "surround".
     if (name == "audio.surround") {
         return ReadBool(value, config.surround);
     }
@@ -605,6 +618,7 @@ std::string ConfigSerialize(const Config &config) {
     root["game"]["player_damage"] = options.player_damage;
     root["game"]["enemy_hp"] = options.enemy_hp;
     root["game"]["names"] = options.names;
+    root["video"]["text_font"] = config.font_sharp ? "sharp" : "original";
     root["video"]["text_shadow"] = config.text_shadow;
     root["video"]["glyph_shadow"] = config.glyph_shadow;
     root["video"]["name_shadow"] = config.name_shadow;
@@ -625,8 +639,7 @@ std::string ConfigSerialize(const Config &config) {
     root["video"]["anisotropy"] = config.anisotropy;
     root["video"]["soft_focus"] = options.soft_focus;
     root["audio"]["master_volume"] = Shortest(config.master_volume);
-    root["audio"]["sound"] = options.stereo ? "stereo" : "mono";
-    root["audio"]["surround"] = config.surround;
+    root["audio"]["sound"] = config.surround ? "surround" : options.stereo ? "stereo" : "mono";
     root["audio"]["soundtrack"] = config.soundtrack ? "custom" : "ps2";
     root["input"]["mouse_sensitivity"] = Shortest(config.mouse_sensitivity);
     root["input"]["stick_sensitivity"] = Shortest(config.stick_sensitivity);

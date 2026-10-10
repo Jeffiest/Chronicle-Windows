@@ -9,6 +9,8 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL.h>
+
 #include "localize.hpp"
 #include "menu_option.hpp"
 #include "platform/input.hpp"
@@ -90,6 +92,12 @@ Row SettingRow(const char *key, const char *label, const char *help, int (*count
             .text = text,
             .names = names,
             .restore = restore};
+}
+
+void QuitGame() {
+    SDL_Event event{};
+    event.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&event);
 }
 
 std::string ChoiceName(const char *names, int choice) {
@@ -463,7 +471,7 @@ void SetGyro(Config &config, int choice) {
 }
 
 int GlyphDeviceCount(const Config &) {
-    return 9;
+    return 10;
 }
 
 int GlyphDeviceChoice(const Config &config) {
@@ -536,6 +544,19 @@ std::string GlyphShadowText(const Config &config) {
     return std::format("{}%", config.glyph_shadow);
 }
 
+int Three(const Config &) {
+    return 3;
+}
+
+int SoundChoice(const Config &config) {
+    return config.surround ? 2 : config.options.stereo ? 1 : 0;
+}
+
+void SetSound(Config &config, int choice) {
+    config.options.stereo = choice != 0;
+    config.surround = choice == 2;
+}
+
 template <int Config::*Member>
 int PictureShadowChoice(const Config &config) {
     return std::clamp(config.*Member / 5, 0, 20);
@@ -554,7 +575,6 @@ std::string PictureShadowText(const Config &config) {
 const Row kGameRows[] = {
     GameRow<&ConfigGameOptions::save_cursor_position, true>("game.save_cursor_position", "Save Cursor Position",
                                                             "On|Off", 0x15E),
-    GameRow<&ConfigGameOptions::fast_messages, false>("game.message_speed", "Message Speed", "Normal|Fast", 0x160),
     GameRow<&ConfigGameOptions::clock, true>("game.clock", "Clock", "On|Off", 0x162),
     GameRow<&ConfigGameOptions::fast_time, false>("game.time_speed", "Time Speed", "Normal|Fast", 0x163),
     Row{.key = "game.map",
@@ -572,6 +592,8 @@ const Row kGameRows[] = {
                                              "\"Discord Rich Presence\"\nShows what you are\nplaying on Discord."),
     OnOffRow<&Config::element_quick_select>("game.element_quick_select", "Element Quick Select",
                                             "\"Element Quick Select\"\nD-pad Up in a dungeon\npicks the element."),
+    Row{.key = "quit_game", .label = "Quit Game", .help = "Exit the game and return to the desktop.",
+        .activate = QuitGame},
 };
 
 const Row kDisplayRows[] = {
@@ -599,45 +621,20 @@ const Row kDisplayRows[] = {
                "\"Anisotropic Filter\"\nSharper textures on\nsurfaces seen at a\nslant.", AnisotropyCount,
                AnisotropyChoice, SetAnisotropy, nullptr, "Off|2x|4x|8x|16x"),
     GameRow<&ConfigGameOptions::soft_focus, true>("video.soft_focus", "Soft Focus", "On|Off", 0x169),
-    SettingRow("video.text_shadow", "Text Shadow",
-               "\"Text Shadow\"\nHow dark the shadow\nunder the letters is.\n50% is the soft one.", ShadowCount,
-               TextShadowChoice, SetTextShadow, TextShadowText),
-    SettingRow("video.glyph_shadow", "Symbol Shadow",
-               "\"Symbol Shadow\"\nHow dark the shadow\nunder the button\nsymbols is.", ShadowCount,
-               GlyphShadowChoice, SetGlyphShadow, GlyphShadowText),
-    SettingRow("video.name_shadow", "Area Name Shadow",
-               "\"Area Name Shadow\"\nHow dark the shadow\nunder the area names\nis, from the next area.", ShadowCount,
-               PictureShadowChoice<&Config::name_shadow>, SetPictureShadow<&Config::name_shadow>,
-               PictureShadowText<&Config::name_shadow>),
-    SettingRow("video.floor_shadow", "Floor Label Shadow",
-               "\"Floor Label Shadow\"\nHow dark the shadow\nunder the dungeon floor\nlabels is.", ShadowCount,
-               PictureShadowChoice<&Config::floor_shadow>, SetPictureShadow<&Config::floor_shadow>,
-               PictureShadowText<&Config::floor_shadow>),
-    SettingRow("video.boss_shadow", "Boss Name Shadow",
-               "\"Boss Name Shadow\"\nHow dark the shadow\nunder the bosses'\nnames is.", ShadowCount,
-               PictureShadowChoice<&Config::boss_shadow>, SetPictureShadow<&Config::boss_shadow>,
-               PictureShadowText<&Config::boss_shadow>),
 };
 
 const Row kAudioRows[] = {
     SettingRow("audio.master_volume", "Volume", "\"Volume\"\nHow loud the game is.", VolumeCount, VolumeChoice,
                SetVolume, VolumeText),
-    GameRow<&ConfigGameOptions::stereo, true>("audio.sound", "Sound", "Stereo|Mono", 0x161),
+    SettingRow("audio.sound", "Sound", "\"Sound\"\nMono, stereo, or\nsurround for 5.1\nspeakers.", Three, SoundChoice,
+               SetSound, nullptr, "Mono|Stereo|Surround"),
     NamedRow<&Config::soundtrack>("audio.soundtrack", "Soundtrack",
                                   "\"Soundtrack\"\nPS2: the game's music.\nCustom: your own\nrecordings, from the\nnext song.",
                                   "PS2|Custom"),
-    OnOffRow<&Config::surround>("audio.surround", "Surround",
-                                "\"Surround\"\nSpreads the sound to\n5.1 speakers."),
 };
 
 const Row kControlRows[] = {
     GameRow<&ConfigGameOptions::vibration, true>("input.vibration", "Vibration", "On|Off", 0x15F),
-    NamedRow<&Config::glyphs_new>("input.glyphs", "Button Symbols",
-                                  "\"Button Symbols\"\nNew: redrawn symbols\nfor your controller.\nOriginal: the PS2's.",
-                                  "Original|New"),
-    SettingRow("input.glyph_device", "Symbols Shown",
-               "\"Symbols Shown\"\nAuto: the device you\nuse. Or always show one\nof the others.", GlyphDeviceCount,
-               GlyphDeviceChoice, SetGlyphDevice, nullptr, "Auto|PS3|PS4|PS5|Xbox|Switch|Steam Deck|Steam Controller|Keyboard"),
     SettingRow("input.mouse_sensitivity", "Mouse Sensitivity", "\"Mouse Sensitivity\"\nHow fast the mouse\nturns the camera.",
                MouseSensitivityCount, MouseSensitivityChoice, SetMouseSensitivity, MouseSensitivityText, nullptr,
                RestoreMouseSensitivity),
@@ -671,6 +668,9 @@ const Row kControlRows[] = {
 const Row kAccessibilityRows[] = {
     OnOffRow<&Config::qte_always_win>("game.qte_always_win", "Always Win QTEs",
                                       "\"Always Win QTEs\"\nButton prompts always\nend in a perfect."),
+};
+
+const Row kTextRows[] = {
     Row{.key = "game.language",
         .label = "Language",
         .help = "\"Language\"\nThe language of the game;\nAsk shows the language\nscreen at start-up.",
@@ -678,6 +678,34 @@ const Row kAccessibilityRows[] = {
         .get = LanguageChoice,
         .set = SetLanguage,
         .names = "Ask|English|Francais|Deutsch|Italiano|Espanol"},
+    GameRow<&ConfigGameOptions::fast_messages, false>("game.message_speed", "Message Speed", "Normal|Fast", 0x160),
+    NamedRow<&Config::glyphs_new>("input.glyphs", "Button Symbols",
+                                  "\"Button Symbols\"\nNew: redrawn symbols\nfor your controller.\nOriginal: the PS2's.",
+                                  "Original|New"),
+    SettingRow("input.glyph_device", "Symbols Shown",
+               "\"Symbols Shown\"\nAuto: the device you\nuse. Or always show one\nof the others.", GlyphDeviceCount,
+               GlyphDeviceChoice, SetGlyphDevice, nullptr, "Auto|PS3|PS4|PS5|PS5 Colored|Xbox|Switch|Steam Deck|Steam Controller|Keyboard"),
+    NamedRow<&Config::font_sharp>("video.text_font", "Text Font",
+                                  "\"Text Font\"\nSharp: a clear font at\nthe screen's size.\nOriginal: the game's.",
+                                  "Original|Sharp"),
+    SettingRow("video.text_shadow", "Text Shadow",
+               "\"Text Shadow\"\nHow dark the shadow\nunder the letters is.\n50% is the soft one.", ShadowCount,
+               TextShadowChoice, SetTextShadow, TextShadowText),
+    SettingRow("video.glyph_shadow", "Symbol Shadow",
+               "\"Symbol Shadow\"\nHow dark the shadow\nunder the button\nsymbols is.", ShadowCount,
+               GlyphShadowChoice, SetGlyphShadow, GlyphShadowText),
+    SettingRow("video.name_shadow", "Area Name Shadow",
+               "\"Area Name Shadow\"\nHow dark the shadow\nunder the area names\nis, from the next area.", ShadowCount,
+               PictureShadowChoice<&Config::name_shadow>, SetPictureShadow<&Config::name_shadow>,
+               PictureShadowText<&Config::name_shadow>),
+    SettingRow("video.floor_shadow", "Floor Label Shadow",
+               "\"Floor Label Shadow\"\nHow dark the shadow\nunder the dungeon floor\nlabels is.", ShadowCount,
+               PictureShadowChoice<&Config::floor_shadow>, SetPictureShadow<&Config::floor_shadow>,
+               PictureShadowText<&Config::floor_shadow>),
+    SettingRow("video.boss_shadow", "Boss Name Shadow",
+               "\"Boss Name Shadow\"\nHow dark the shadow\nunder the bosses'\nnames is.", ShadowCount,
+               PictureShadowChoice<&Config::boss_shadow>, SetPictureShadow<&Config::boss_shadow>,
+               PictureShadowText<&Config::boss_shadow>),
 };
 
 // Strings the binding rows point at. A deque never moves what it holds, so the c_str pointers the
@@ -778,6 +806,7 @@ std::span<const Page> Pages() {
         {"Display",       "\"Display\"\nThe window and picture.",                    kDisplayRows      },
         {"Audio",         "\"Audio\"\nSound and music.",                             kAudioRows        },
         {"Controls",      "\"Controls\"\nMouse, gamepad and gyro.",                  kControlRows      },
+        {"Text",          "\"Text\"\nLanguage, lettering and\nsymbols.",             kTextRows         },
         {"Accessibility", "\"Accessibility\"\nHelp with harder parts\nof the game.", kAccessibilityRows},
         {"Bindings",      "\"Bindings\"\nWhat each key and\nmouse button does.",       BindingRows()     },
     };

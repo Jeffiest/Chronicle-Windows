@@ -136,16 +136,22 @@ void DrawRows(int alpha) {
         const Row &row = page.rows[r];
         int        y = RowTop(r) + 2;
         bool       selected = g_screen.row == r;
-        texts.labels[g_screen.page][r].Draw(kLabelX, y, alpha);
+        GameText &label = texts.labels[g_screen.page][r];
+        label.RefreshGlyphs();
+        label.Draw(kLabelX, y, alpha);
         GameText &value = texts.values[g_screen.page][r];
-        if (row.action != nullptr && g_screen.binding_row == r) {
+        if (row.activate != nullptr) {
+            value.Set("");
+        } else if (row.action != nullptr && g_screen.binding_row == r) {
             value.Set(g_screen.binding_prompt);
         } else {
             value.Set(RowValue(row, config));
         }
+        value.RefreshGlyphs();
+        value.FitWidth(kValueRight - kValueX - 32);
         value.SetColour(selected ? FONT_COLOR_YELLOW : FONT_COLOR_WHITE);
         value.Draw((kValueX + kValueRight - value.Width()) / 2, y, alpha);
-        if (selected && row.action == nullptr) {
+        if (selected && row.action == nullptr && row.activate == nullptr) {
             int choice = row.get(config);
             if (choice > 0) {
                 texts.left.Draw(kValueX + 8, y, alpha);
@@ -203,7 +209,6 @@ void Draw() {
     DrawSprite(kExitX, kExitY, 452, 224, kExitWidth, kExitHeight, alpha);
 
     if (g_screen.step == OPTION_STEP_RUN) {
-        DrawSelection(alpha);
         g_screen.step_count = 0;
     } else {
         g_screen.step_count++;
@@ -217,6 +222,12 @@ void Draw() {
     GetTexts().shortcuts.Draw(kExitX, kHelpY, alpha);
     DrawTabs(alpha);
     DrawRows(alpha);
+
+    // The pointer and its bracket are the topmost layer: draw them after the menu text so the
+    // item the mouse is over cannot cover the cursor.
+    if (g_screen.step == OPTION_STEP_RUN) {
+        DrawSelection(alpha);
+    }
 
     setbilinear(1);
 }
